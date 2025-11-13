@@ -1,0 +1,14 @@
+services:
+  eso-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eso_service_container
+    restart: always
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env.development
+    volumes:
+      - .:/app
+      - /app/node_modules
