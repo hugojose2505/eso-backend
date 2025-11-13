@@ -12,6 +12,8 @@ export class StoreController {
 
   @Post('purchase')
   purchase(@Req() req: any, @Body() dto: PurchaseDto) {
+      console.log("USER NO REQ", req.user);
+
     return this.storeService.purchase(req.user.id, dto);
   }
 

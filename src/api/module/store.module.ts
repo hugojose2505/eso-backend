@@ -6,10 +6,12 @@ import { UserCosmetic } from 'src/domain/entities/user-cosmetic.entity';
 import { User } from 'src/domain/entities/user.entity';
 import { StoreService } from '../service/store.service';
 import { StoreController } from '../controller/store.controller';
+import { AuthModule } from './auth.module';
 
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([User, Cosmetic, UserCosmetic, Transaction]),
   ],
   providers: [StoreService],

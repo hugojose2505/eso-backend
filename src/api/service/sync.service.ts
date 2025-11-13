@@ -22,7 +22,6 @@ export class SyncService {
     private readonly cosmeticsRepo: Repository<Cosmetic>,
   ) {}
 
-  // roda de hora em hora (opcional)
   @Cron('0 * * * *')
   async handleCron() {
     this.logger.log('Executando sync automático com Fortnite API...');
@@ -37,18 +36,12 @@ export class SyncService {
   }
 
   async syncNow() {
-    // 1) COSMÉTICOS
     const allRes = await firstValueFrom(
       this.http.get('/cosmetics', {
         params: { language: 'pt-BR' },
       }),
     );
 
-    /**
-     * Formato típico:
-     * { status: 200, data: [ ...brItems ] }
-     * ou em alguns casos { data: { brItems: [...] } }
-     */
     const rawAll = allRes.data?.data.br;
     const allItems: any[] = Array.isArray(rawAll) ? rawAll : [];
 
@@ -59,7 +52,6 @@ export class SyncService {
       this.logger.warn(JSON.stringify(allRes.data));
     }
 
-  // 2) COSMÉTICOS NOVOS (best effort)
     let newIds = new Set<string>();
 
     try {
@@ -69,11 +61,6 @@ export class SyncService {
         }),
       );
 
-      /**
-       * Pode vir como:
-       * - { status, data: { items: [...] } }
-       * - ou { status, data: [...] }
-       */
       const rawNewItems = newRes.data?.data?.items.br ?? newRes.data?.data;
       const newItems: any[] = Array.isArray(rawNewItems) ? rawNewItems : [];
 
@@ -91,46 +78,23 @@ export class SyncService {
       );
     }
 
-
-    // 3) SHOP (preço / onSale / promo)
     const shopRes = await firstValueFrom(
       this.http.get('/shop', {
         params: { language: 'pt-BR' },
       }),
     );
 
-    /**
-     * Exemplo real que você mandou:
-     * {
-     *   status: 200,
-     *   data: {
-     *     hash: "...",
-     *     date: "...",
-     *     vbuckIcon: "...",
-     *     entries: [
-     *       {
-     *         regularPrice: 500,
-     *         finalPrice: 500,
-     *         brItems: [
-     *           { id: "Character_ThinGlaze", name: "...", ... }
-     *         ]
-     *       }
-     *     ]
-     *   }
-     * }
-     */
     const shopMap = this.buildShopMap(shopRes.data?.data);
 
     let created = 0;
     let updated = 0;
     const now = new Date();
-    const DAYS_NEW = 7; // "novo" = últimos 7 dias
+    const DAYS_NEW = 7;
 
     for (const item of allItems) {
       const mapped = this.mapCosmetic(item);
-      const shopInfo = shopMap.get(mapped.externalId); // externalId = id do brItem
+      const shopInfo = shopMap.get(mapped.externalId);
 
-      // FLAG isNew: combina /cosmetics/new + data de lançamento
       let isNew = newIds.has(mapped.externalId);
 
       if (!isNew && mapped.releaseDate) {
@@ -189,9 +153,6 @@ export class SyncService {
     return { created, updated };
   }
 
-  /**
-   * Mapeia um brItem da Fortnite API para a entidade Cosmetic
-   */
   private mapCosmetic(item: any): {
     externalId: string;
     name: string;
@@ -201,7 +162,6 @@ export class SyncService {
     imageUrl?: string;
     releaseDate?: Date;
   } {
-    // esse id é o mesmo que aparece no brItems do shop
     const externalId: string = item.id;
     const name: string = item.name;
 
@@ -251,9 +211,6 @@ export class SyncService {
     };
   }
 
-  /**
-   * Monta um Map<idDoCosméticoBR, ShopInfo> com base em data.entries[].brItems[]
-   */
   private buildShopMap(shopData: any): Map<string, ShopInfo> {
     const map = new Map<string, ShopInfo>();
     if (!shopData) return map;
@@ -265,17 +222,13 @@ export class SyncService {
       const finalPrice = entry.finalPrice ?? regularPrice;
 
       const hasDiscount = finalPrice < regularPrice;
-
-      // aqui "onSale" = está à venda (está em entries)
       const isOnSale = true;
-
-      // promo = desconto OU algum destaque visual
       const isPromo = hasDiscount || !!entry.offerTag || !!entry.banner;
 
       const items = entry.brItems ?? entry.items ?? entry.tracks ?? [];
 
       for (const item of items) {
-        const id = item.id; // ex: "Character_ThinGlaze"
+        const id = item.id;
         if (!id) continue;
 
         const info: ShopInfo = {
@@ -285,7 +238,6 @@ export class SyncService {
         };
 
         const existing = map.get(id);
-        // se o item aparecer em mais de uma entry, guarda o menor preço
         if (!existing || finalPrice < existing.price) {
           map.set(id, info);
         }
