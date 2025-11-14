@@ -7,6 +7,7 @@ import { CosmeticsModule } from 'src/api/module/cosmetic.module';
 import { StoreModule } from 'src/api/module/store.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SyncModule } from './sync.module';
+import { PublicUsersModule } from './users-list.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { SyncModule } from './sync.module';
     AuthModule,
     UsersModule,
     CosmeticsModule,
+    PublicUsersModule,
     StoreModule,
   ],
 })
