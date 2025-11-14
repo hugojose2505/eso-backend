@@ -7,6 +7,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:5173', 
+      "https://sistema-eso.vercel.app"
     ],
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
