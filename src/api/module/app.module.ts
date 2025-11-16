@@ -8,6 +8,7 @@ import { StoreModule } from 'src/api/module/store.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SyncModule } from './sync.module';
 import { PublicUsersModule } from './users-list.module';
+import { BundleModule } from './bundle.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PublicUsersModule } from './users-list.module';
     ScheduleModule.forRoot(),
     SyncModule,
     AuthModule,
+    BundleModule,
     UsersModule,
     CosmeticsModule,
     PublicUsersModule,

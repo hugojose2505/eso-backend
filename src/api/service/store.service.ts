@@ -8,10 +8,10 @@ import { Cosmetic } from 'src/domain/entities/cosmetic.entity';
 import { Transaction } from 'src/domain/entities/transaction.entity';
 import { UserCosmetic } from 'src/domain/entities/user-cosmetic.entity';
 import { User } from 'src/domain/entities/user.entity';
+import { Bundle } from 'src/domain/entities/bundle.entity';
 import { DataSource, Repository } from 'typeorm';
 import { PurchaseDto } from '../dto/purchase/purchase.dto';
 import { RefundDto } from '../dto/refound/refound.dto';
-
 
 @Injectable()
 export class StoreService {
@@ -29,15 +29,31 @@ export class StoreService {
 
     @InjectRepository(Transaction)
     private readonly transactionsRepo: Repository<Transaction>,
+
+    @InjectRepository(Bundle)
+    private readonly bundlesRepo: Repository<Bundle>,
   ) {}
 
   async purchase(userId: string, dto: PurchaseDto) {
-    if (!dto.cosmeticId) {
-      throw new BadRequestException('cosmeticId é obrigatório por enquanto.');
+    const { cosmeticId, bundleId } = dto;
+
+    if (cosmeticId && bundleId) {
+      throw new BadRequestException(
+        'Informe apenas cosmeticId OU bundleId, não os dois.',
+      );
     }
 
-    return this.purchaseCosmetic(userId, dto.cosmeticId);
+    if (bundleId) {
+      return this.purchaseBundle(userId, bundleId);
+    }
+
+    if (cosmeticId) {
+      return this.purchaseCosmetic(userId, cosmeticId);
+    }
+
+    throw new BadRequestException('Informe cosmeticId ou bundleId.');
   }
+
 
   private async purchaseCosmetic(userId: string, cosmeticId: string) {
     return this.dataSource.transaction(async (manager) => {
@@ -96,6 +112,74 @@ export class StoreService {
       };
     });
   }
+
+
+  private async purchaseBundle(userId: string, bundleId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const user = await manager.findOne(User, {
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) throw new NotFoundException('User not found');
+
+      const bundle = await manager.findOne(Bundle, {
+        where: { id: bundleId },
+        relations: ['cosmetics'],
+      });
+      if (!bundle) throw new NotFoundException('Bundle not found');
+
+      if (!bundle.cosmetics || bundle.cosmetics.length === 0) {
+        throw new BadRequestException('Bundle sem cosméticos vinculados.');
+      }
+
+      if (user.vbucksBalance < bundle.price) {
+        throw new BadRequestException('Saldo insuficiente de v-bucks.');
+      }
+
+      const balanceBefore = user.vbucksBalance;
+      user.vbucksBalance -= bundle.price;
+      await manager.save(user);
+
+      let newItems = 0;
+
+      for (const cosmetic of bundle.cosmetics) {
+        const alreadyOwned = await manager.count(UserCosmetic, {
+          where: {
+            user: { id: user.id },
+            cosmetic: { id: cosmetic.id },
+          },
+        });
+
+        if (alreadyOwned === 0) {
+          const userCosmetic = manager.create(UserCosmetic, {
+            user,
+            cosmetic,
+            source: 'BUNDLE',
+          });
+          await manager.save(userCosmetic);
+          newItems++;
+        }
+      }
+
+      const tx = manager.create(Transaction, {
+        user,
+        type: 'PURCHASE',
+        itemType: 'BUNDLE', 
+        amount: bundle.price,
+        balanceBefore,
+        balanceAfter: user.vbucksBalance,
+      });
+      await manager.save(tx);
+
+      return {
+        message: 'Bundle comprado com sucesso.',
+        balance: user.vbucksBalance,
+        bundleId: bundle.id,
+        itemsGranted: newItems,
+      };
+    });
+  }
+
 
   async refund(userId: string, dto: RefundDto) {
     const { cosmeticId } = dto;

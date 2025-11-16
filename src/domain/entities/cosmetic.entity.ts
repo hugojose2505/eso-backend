@@ -2,11 +2,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  ManyToMany,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserCosmetic } from './user-cosmetic.entity';
+import { Bundle } from './bundle.entity';
 
 @Entity('cosmetics')
 export class Cosmetic {
@@ -51,6 +53,9 @@ export class Cosmetic {
 
   @OneToMany(() => UserCosmetic, (uc) => uc.cosmetic)
   userCosmetics: UserCosmetic[];
+
+  @ManyToMany(() => Bundle, (bundle) => bundle.cosmetics)
+  bundles: Bundle[];
 
   @CreateDateColumn()
   createdAt: Date;

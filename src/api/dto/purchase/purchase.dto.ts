@@ -5,4 +5,8 @@ export class PurchaseDto {
   @IsUUID()
   cosmeticId?: string;
 
+  @IsOptional()
+  @IsUUID()
+  bundleId?: string;
+
 }
